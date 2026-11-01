@@ -275,9 +275,16 @@ app.get('/api/health', async (req, res) => {
 });
 
 // SPA fallback: every non-API route serves the app.
+// On Vercel, public/ files are served statically by Vercel itself,
+// but they are NOT included in the serverless function bundle, so
+// sendFile() inside the function fails with 500 for "/". Redirect
+// to /index.html instead — that URL is served statically (200)
+// and the app's hash routing (#/arcade, #/shop, ...) works from
+// there. Locally, express.static already serves /index.html, so
+// this redirect is only reached on Vercel for the root route.
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found.' });
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.redirect('/index.html');
 });
 
 if (process.argv.includes('--create-user')) {
