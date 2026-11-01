@@ -303,4 +303,18 @@ if (process.argv.includes('--create-user')) {
   ensureDb().then(() => app.listen(port, () => console.log('GEGABYTE Vercel version on http://localhost:' + port)))
     .catch(e => { console.error('Database not ready:', e.message); process.exit(1); });
 }
-module.exports = { app, dbReady, ensureDb, getLastDbError };
+// Vercel Express preset treats server.js itself as a function
+// entry: it requires the default export to BE a function/server.
+// The old object export {app, ...} crashed every "/" request
+// with "Invalid export found in module /var/task/server.js"
+// (runtime logs, 2026-11-01 20:53 PKT) — while /api/* worked
+// because api/index.js already exports a function. Fix: export
+// the Express app itself (it IS a function), and attach the
+// helpers as properties so `const {app, ensureDb} =
+// require('./server.js')` in api/index.js keeps working.
+module.exports = app;
+module.exports.app = app;
+module.exports.dbReady = dbReady;
+module.exports.ensureDb = ensureDb;
+module.exports.getLastDbError = getLastDbError;
+module.exports.default = app;
