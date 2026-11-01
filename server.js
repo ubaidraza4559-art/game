@@ -16,7 +16,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
-const { q, dbReady } = require('./lib/db');
+const { q, dbReady, ensureDb, getLastDbError } = require('./lib/db');
 
 const app = express();
 app.use(express.json({ limit: '3mb' }));
@@ -270,8 +270,8 @@ app.post('/api/admin/products', needAdmin, async (req, res) => {
 });
 
 app.get('/api/health', async (req, res) => {
-  try { await q('SELECT 1'); res.json({ ok: true, db: 'postgres' }); }
-  catch { res.status(503).json({ ok: false, db: 'unavailable' }); }
+  try { await ensureDb(); await q('SELECT 1'); res.json({ ok: true, db: 'postgres' }); }
+  catch (e) { res.status(503).json({ ok: false, db: 'unavailable', detail: getLastDbError() || String(e.message || e).slice(0, 300) }); }
 });
 
 // SPA fallback: every non-API route serves the app.
@@ -282,7 +282,7 @@ app.get('*', (req, res) => {
 
 if (process.argv.includes('--create-user')) {
   (async () => {
-    await dbReady;
+    await ensureDb();
     const email = process.argv[process.argv.indexOf('--create-user') + 1];
     const pw = process.argv[process.argv.indexOf('--create-user') + 2];
     const name = process.argv[process.argv.indexOf('--create-user') + 3] || 'Admin';
@@ -293,7 +293,7 @@ if (process.argv.includes('--create-user')) {
   })();
 } else if (require.main === module) {
   const port = process.env.PORT || 3000;
-  dbReady.then(() => app.listen(port, () => console.log('GEGABYTE Vercel version on http://localhost:' + port)))
+  ensureDb().then(() => app.listen(port, () => console.log('GEGABYTE Vercel version on http://localhost:' + port)))
     .catch(e => { console.error('Database not ready:', e.message); process.exit(1); });
 }
-module.exports = { app, dbReady };
+module.exports = { app, dbReady, ensureDb, getLastDbError };
